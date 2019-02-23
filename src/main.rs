@@ -221,7 +221,7 @@ commands:
   prepare-bower [pkgname]
     prepare the bower information by downloading the bower information
   update-all
-    update all packages in package.json through bower
+    update all packages in packages.json through bower
   help
     get this help message
 ";
