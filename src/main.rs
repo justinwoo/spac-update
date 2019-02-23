@@ -1,5 +1,6 @@
 #![warn(rust_2018_idioms, clippy::all)]
 
+use rayon::prelude::*;
 use regex::Captures;
 use regex::RegexBuilder;
 use std::env;
@@ -34,14 +35,30 @@ fn main() {
         "help" => help(),
         "from-bower" => {
             let package_name = as_package_name(args.get(2));
-            from_bower(package_name);
+            from_bower(&package_name);
         }
-        "prepare-bower" => prepare_bower(as_package_name(args.get(2))),
+        "prepare-bower" => prepare_bower(&as_package_name(args.get(2))),
+        "update-all" => update_all(),
         _ => panic!(r#"unknown command "{}". see help."#, cmd),
     }
 }
 
-fn from_bower(pkg_name: PkgName) {
+fn update_all() {
+    let deps = run_command("jq 'keys[]' packages.json")
+        .lines()
+        .map(|s| PkgName(String::from(s.trim_matches('"'))))
+        .collect::<Vec<_>>();
+
+    deps.par_iter().map(prepare_bower).collect::<()>();
+    println!("Finished prepare-bower");
+
+    for dep in deps {
+        from_bower(&dep)
+    }
+    println!("Finished from-bower");
+}
+
+fn from_bower(pkg_name: &PkgName) {
     let pkg_params = prepare_pkg_params(&pkg_name);
     let PkgExpr(expr) = prepare_pkg_expr(&pkg_params);
 
@@ -59,7 +76,7 @@ fn from_bower(pkg_name: PkgName) {
     let file_name = format!("src/groups/{}.dhall", group_name);
 
     // check if package already exists
-    let check = run_command(format!(r#"jq '."{}"?' packages.json"#, pkg_params.name));
+    let check = run_command(&format!(r#"jq '."{}"?' packages.json"#, pkg_params.name));
 
     if check == "null" {
         // the package does not exist in the set, and the group file may or may not exist already
@@ -116,12 +133,12 @@ fn write_file_for_pkg(path: &str, pkg_name: &PkgName, contents: &str) {
     println!("updated expression for package {}", pkg_name.0);
 }
 
-fn prepare_bower(pkg_name: PkgName) {
-    let PkgExpr(expr) = prepare_pkg_expr(&prepare_pkg_params(&pkg_name));
+fn prepare_bower(pkg_name: &PkgName) {
+    let PkgExpr(expr) = prepare_pkg_expr(&prepare_pkg_params(pkg_name));
     println!("{}", expr);
 }
 
-fn run_command(command: String) -> String {
+fn run_command(command: &str) -> String {
     let command_ref = &command;
     let attempt = Command::new("bash")
         .arg("-c")
@@ -151,28 +168,28 @@ fn prepare_pkg_params(pkg_name: &PkgName) -> PkgParams {
     let PkgName(name) = pkg_name;
 
     // ensure bower-info dir
-    run_command("mkdir -p bower-info".to_string());
+    run_command("mkdir -p bower-info");
 
     // filepath where we will store the bower info json
     let filepath = format!("bower-info/{}.json", name);
 
     // get the bower info if we dont have it
-    run_command(format!(
+    run_command(&format!(
         "! test -f {} && bower info purescript-{} --json > {} || exit 0",
         filepath, name, filepath
     ));
 
     // deps, or fall through to empty list
-    let dependencies = run_command(format!(
+    let dependencies = run_command(&format!(
         r#"jq '.latest.dependencies // [] | keys | map(.[11:])' {}"#,
         filepath
     ));
 
     // url needs to remove some crud so we have a proper https url
-    let url = run_command(format!(r#"jq '.latest.repository.url // .latest.homepage' {} -r | sed -e "s/git:/https:/g" -e "s/com:/com\//g" -e "s/git@/https:\/\//" -e "s/\.git//g""#, filepath));
+    let url = run_command(&format!(r#"jq '.latest.repository.url // .latest.homepage' {} -r | sed -e "s/git:/https:/g" -e "s/com:/com\//g" -e "s/git@/https:\/\//" -e "s/\.git//g""#, filepath));
 
     // version, but stripping "v" that bower is sadly inconsistent on
-    let version = run_command(format!(
+    let version = run_command(&format!(
         r#"jq '.latest.version' {} -r | sed 's/v//g'"#,
         filepath
     ));
