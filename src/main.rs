@@ -219,7 +219,9 @@ commands:
   from-bower [pkgname]
     update a single package from bower
   prepare-bower [pkgname]
-    prepare the bower information by dowloading the bower information
+    prepare the bower information by downloading the bower information
+  update-all
+    update all packages in package.json through bower
   help
     get this help message
 ";
