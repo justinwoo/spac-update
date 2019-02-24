@@ -44,9 +44,9 @@ fn main() {
 }
 
 fn update_all() {
-    let deps = run_command("jq 'keys[]' packages.json")
+    let deps = run_command("jq 'keys[]' packages.json -r")
         .lines()
-        .map(|s| PkgName(String::from(s.trim_matches('"'))))
+        .map(|s| PkgName(s.to_string()))
         .collect::<Vec<_>>();
 
     deps.par_iter().map(prepare_bower).collect::<()>();
