@@ -179,6 +179,9 @@ fn prepare_pkg_params(pkg_name: &PkgName) -> PkgParams {
         filepath, name, filepath
     ));
 
+    // check if the result was empty or not
+    run_command(&format!("test -s {} || (echo 'Bower info for purescript-{} was empty. Does this library exist on Bower?' && exit 1)", filepath, name));
+
     // deps, or fall through to empty list
     let dependencies = run_command(&format!(
         r#"jq '.latest.dependencies // [] | keys | map(.[11:])' {}"#,
