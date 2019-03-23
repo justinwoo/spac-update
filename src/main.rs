@@ -70,7 +70,7 @@ fn from_bower(pkg_name: &PkgName) {
             pkg_params.url, pkg_params.name
         );
     }
-    let group_name = url_splits[3];
+    let group_name = url_splits[3].to_lowercase();
 
     // file to write our expression to, which may or may not exist already
     let file_name = format!("src/groups/{}.dhall", group_name);
